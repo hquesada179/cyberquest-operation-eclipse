@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBERQUEST | Operation ECLIPSE Command Center</title>
+<meta name="description" content="HELIX Corporation - Project ECLIPSE Incident Response Command Center">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<!-- Ambient overlay: scanlines + vignette -->
+<div class="crt-overlay" aria-hidden="true"></div>
+
+<!-- Toast notification stack -->
+<div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+<!-- ============================================================ -->
+<!-- BOOT / NARRATIVE SCREEN                                       -->
+<!-- ============================================================ -->
+<section id="boot-screen" class="boot-screen">
+  <div class="boot-frame">
+    <div class="boot-topline">
+      <span class="dot dot-red"></span><span class="dot dot-amber"></span><span class="dot dot-green"></span>
+      <span class="boot-topline-title">helix-srv01 :: secure-channel :: incident-console</span>
+    </div>
+
+    <div class="boot-body">
+      <div class="boot-logo">
+        <span class="boot-logo-mark">◈</span>
+        <div>
+          <h1>CYBERQUEST</h1>
+          <p class="boot-subtitle">Operation ECLIPSE — Command Center</p>
+        </div>
+      </div>
+
+      <div class="boot-classified">CLASSIFIED // HELIX CORPORATION INTERNAL // RED TEAM CYBERQUEST</div>
+
+      <div class="boot-briefing">
+        <p>
+          <strong>HELIX Corporation</strong> opera una infraestructura crítica de investigación bajo
+          <strong>Project ECLIPSE</strong>. Hace 72 horas, el servidor interno <strong>HELIX-SRV01</strong>
+          registró actividad anómala: una señal saliente no autorizada, seguida de accesos sospechosos,
+          exportaciones de datos internos y un mecanismo de persistencia oculto en el sistema.
+        </p>
+        <p>
+          El equipo <strong>CYBERQUEST</strong> ha sido activado para reconstruir el incidente completo:
+          desde la señal inicial hasta la identificación formal del responsable. Cada hallazgo debe ser
+          verificado, correlacionado y documentado siguiendo una cadena de custodia digital.
+        </p>
+        <p>
+          Su misión: recorrer las <strong>5 operaciones oficiales</strong> (10 etapas técnicas), recuperar
+          evidencia, y cerrar formalmente <strong>Operation ECLIPSE</strong>.
+        </p>
+      </div>
+
+      <div class="boot-characters">
+        <div class="boot-character">
+          <span class="boot-character-tag">DIRECTOR CIENTÍFICO</span>
+          <span class="boot-character-name">Dr. Adrian Voss</span>
+          <span class="boot-character-account">cuenta: voss</span>
+        </div>
+        <div class="boot-character">
+          <span class="boot-character-tag">ANALISTA DE OPERACIONES</span>
+          <span class="boot-character-name">Elena Torres</span>
+          <span class="boot-character-account">cuenta: elena</span>
+        </div>
+        <div class="boot-character">
+          <span class="boot-character-tag">ADMINISTRADOR DE INFRAESTRUCTURA</span>
+          <span class="boot-character-name">Marcus Vale</span>
+          <span class="boot-character-account">cuenta: marcus</span>
+        </div>
+      </div>
+
+      <button id="btn-enter-operation" class="btn btn-primary btn-block">
+        <span>&gt; INICIALIZAR OPERACIÓN ECLIPSE</span>
+      </button>
+      <p class="boot-footnote">Progreso guardado localmente en este equipo · 5 misiones · 10 etapas · 5000 pts</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- MAIN APPLICATION                                              -->
+<!-- ============================================================ -->
+<div id="app" class="app hidden">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="topbar-mark">◈</span>
+      <div class="topbar-brand-text">
+        <span class="topbar-title">HELIX CORP // CYBERQUEST</span>
+        <span class="topbar-subtitle">Operation ECLIPSE Command Center</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="topbar-score">
+        <span class="topbar-score-label">SCORE</span>
+        <span id="topbar-score-value" class="topbar-score-value">0 / 5000</span>
+      </div>
+      <button id="btn-reset" class="btn btn-ghost btn-small" title="Reiniciar todo el progreso">⟲ REINICIAR</button>
+    </div>
+  </header>
+
+  <main class="main-grid">
+
+    <!-- Dashboard -->
+    <section class="panel dashboard-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Dashboard de Operación</h2>
+        <span id="operation-status" class="status-badge status-active">OPERACIÓN ACTIVA</span>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-labels">
+          <span>PROGRESO GENERAL</span>
+          <span id="progress-label-value">0 / 5000 PTS</span>
+        </div>
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <span id="stat-missions" class="stat-value">0 / 5</span>
+          <span class="stat-label">Misiones completadas</span>
+        </div>
+        <div class="stat-box">
+          <span id="stat-stages" class="stat-value">0 / 10</span>
+          <span class="stat-label">Etapas resueltas</span>
+        </div>
+        <div class="stat-box">
+          <span id="stat-badges" class="stat-value">0 / 5</span>
+          <span class="stat-label">Insignias desbloqueadas</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Missions grid -->
+    <section class="panel missions-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Misiones Oficiales</h2>
+        <span class="panel-hint">Selecciona una misión desbloqueada</span>
+      </div>
+      <div id="missions-grid" class="missions-grid"><!-- rendered by app.js --></div>
+    </section>
+
+    <!-- Badges panel -->
+    <section class="panel badges-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Insignias</h2>
+      </div>
+      <div id="badges-grid" class="badges-grid"><!-- rendered by app.js --></div>
+    </section>
+
+    <!-- Characters panel -->
+    <section class="panel characters-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Personajes de la Operación</h2>
+      </div>
+      <div id="characters-grid" class="characters-grid"><!-- rendered by app.js --></div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <span>HELIX CORPORATION // PROJECT ECLIPSE — Laboratorio controlado con fines académicos</span>
+  </footer>
+</div>
+
+<!-- ============================================================ -->
+<!-- MISSION MODAL                                                 -->
+<!-- ============================================================ -->
+<div id="mission-modal" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-window">
+    <div class="modal-header">
+      <div>
+        <span id="modal-mission-label" class="modal-mission-label">MISIÓN</span>
+        <h2 id="modal-mission-title" class="modal-mission-title">—</h2>
+      </div>
+      <button id="btn-close-modal" class="btn btn-ghost btn-small" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="modal-body" class="modal-body"><!-- rendered by app.js --></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FINAL SCREEN                                                  -->
+<!-- ============================================================ -->
+<div id="final-screen" class="modal-overlay hidden">
+  <div class="modal-window final-window">
+    <div class="final-mark">◈</div>
+    <h1 class="final-title">OPERATION ECLIPSE COMPLETED</h1>
+    <p class="final-subtitle">Cadena de evidencia cerrada · Responsable identificado · Caso archivado</p>
+    <div class="final-score">5000 / 5000 PTS</div>
+    <p class="final-text">
+      El equipo CYBERQUEST ha reconstruido exitosamente el incidente de <strong>HELIX-SRV01</strong>,
+      recuperado toda la evidencia digital y confirmado la atribución. Operation ECLIPSE queda
+      formalmente cerrada.
+    </p>
+    <button id="btn-close-final" class="btn btn-primary">CERRAR INFORME</button>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
