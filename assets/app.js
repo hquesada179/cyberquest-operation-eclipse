@@ -171,7 +171,9 @@
           objective: 'Reconstruir la enumeración inicial del servicio y decodificar el identificador de la señal capturada.',
           technique: 'Reconocimiento y enumeración de servicios · Codificación Base64',
           evidence: 'capture.log:\n[srv01] outbound beacon detected\nservice-id (base64): RkxBR3tTSUdOQUxfR0hPU1RfSURFTlRJRklFRH0=',
-          hash: '1575bd1c92a3d398dffc596f95f32c1e879bb1215866bfcb3bad5de374b4b286'
+          hash: '1575bd1c92a3d398dffc596f95f32c1e879bb1215866bfcb3bad5de374b4b286',
+          hint: 'Revisa el contenido codificado en Base64. Decodifica el identificador de servicio y analiza qué señal está representando.',
+          interpretation: 'Se detectó una señal saliente anómala desde HELIX-SRV01. Al decodificar el identificador en Base64 se confirmó que correspondía a la señal inicial asociada con Operación ECLIPSE.'
         },
         {
           id: 2,
@@ -180,7 +182,9 @@
           objective: 'Reconstruir el ataque de fuerza bruta y confirmar qué cuenta fue comprometida por una contraseña débil.',
           technique: 'Ataque de diccionario (Hydra) · Autenticación SSH',
           evidence: 'auth.log:\nsshd[victim]: 47 failed password attempts (dictionary pattern)\nsshd[victim]: Accepted password for svc-legacy from 10.0.4.17 port 51122 ssh2',
-          hash: 'f5f50977bdd639d5895baf9fb478626534c056532cd2f17ef2da0d3e2e0f26d4'
+          hash: 'f5f50977bdd639d5895baf9fb478626534c056532cd2f17ef2da0d3e2e0f26d4',
+          hint: 'Observa la cantidad de intentos fallidos de SSH y qué ocurre inmediatamente después. Piensa en un ataque de diccionario o fuerza bruta.',
+          interpretation: 'Los registros muestran múltiples intentos fallidos de autenticación SSH seguidos de un acceso exitoso. Este patrón indica que una credencial débil fue comprometida mediante un ataque de diccionario o fuerza bruta.'
         }
       ]
     },
@@ -196,7 +200,9 @@
           objective: 'Decodificar el contenido en Base64 y verificar su integridad contra el checksum SHA-256 publicado en el manifiesto.',
           technique: 'Decodificación Base64 · Verificación de integridad SHA-256',
           evidence: 'manifest.json:\n{ "file": "comms_elena.b64", "sha256_expected": "match" }\nintegrity check: PASSED -> contenido recuperado',
-          hash: '59c2232c667a0bb991f1c6907ac8848fad0c616bb15fe9335c7076eff87dc020'
+          hash: '59c2232c667a0bb991f1c6907ac8848fad0c616bb15fe9335c7076eff87dc020',
+          hint: 'Primero recupera el contenido codificado y luego verifica si su SHA-256 coincide con el valor esperado.',
+          interpretation: 'El archivo de Elena fue recuperado al decodificar su contenido Base64. Después, el SHA-256 coincidió con el valor esperado, confirmando que la comunicación recuperada mantenía su integridad.'
         },
         {
           id: 4,
@@ -205,7 +211,9 @@
           objective: 'Correlacionar metadatos de archivo y registros de exportación para determinar si la operación fue autorizada.',
           technique: 'Análisis de archivos, logs y exportaciones',
           evidence: 'export.log:\n2026-09-21 03:14:02 user=marcus action=EXPORT target=research_db size=1.2GB\napproval_ticket: NOT_FOUND',
-          hash: '690df1c81e7ba7ab5d3e1657b76daf4ee86152f14b8d210f6035acde71eacde1'
+          hash: '690df1c81e7ba7ab5d3e1657b76daf4ee86152f14b8d210f6035acde71eacde1',
+          hint: 'Fíjate en quién ejecutó la exportación, qué recurso fue exportado y especialmente si existe un ticket de autorización.',
+          interpretation: 'Los registros muestran que la cuenta marcus ejecutó una exportación del recurso research_db y no existe un ticket de aprobación asociado. Por ello se concluye que la exportación fue no autorizada.'
         }
       ]
     },
@@ -220,8 +228,10 @@
           desc: 'Una captura de tráfico (PCAP) registró una sesión TCP/SSH sostenida hacia una IP externa, justo después de la exportación no autorizada.',
           objective: 'Analizar la captura para reconstruir el flujo TCP/SSH y confirmar el destino real de la transferencia.',
           technique: 'Análisis de PCAP con Wireshark · Reensamblado de flujos TCP/SSH',
-          evidence: 'capture.pcap (resumen):\nstream[12] 10.0.4.17:51330 -> 203.0.113.44:22 (SSH) bytes=884213\nfollow-tcp-stream -> payload marker: FLAG{ECLIPSE_DATA_EXFILTRATED}',
-          hash: '851d106c9601c81b7ec6ed444a70bc4da80bcc2a2be17cd77f3ced1fdb9ce7a6'
+          evidence: 'capture.pcap (resumen):\nstream[12] 192.168.56.105:51330 -> 203.0.113.77:22 (SSH)\nbytes=884213\nsession-id: ECL-NET-EX-05\ntraffic-status: EXTERNAL_TRANSFER_DETECTED',
+          hash: '851d106c9601c81b7ec6ed444a70bc4da80bcc2a2be17cd77f3ced1fdb9ce7a6',
+          hint: 'Filtra el tráfico por dirección IP y puerto SSH. Revisa el flujo TCP y busca evidencia de una sesión asociada a ECLIPSE.',
+          interpretation: 'El análisis del PCAP muestra tráfico SSH entre HELIX-SRV01 y una dirección externa. La correlación de IP, puerto y sesión confirma una transferencia de datos fuera del entorno autorizado.'
         },
         {
           id: 6,
@@ -230,7 +240,9 @@
           objective: 'Extraer el contenedor oculto y descifrarlo (AES-256-CBC, clave derivada con PBKDF2) para revelar su contenido.',
           technique: 'Extracción esteganográfica (Steghide) · Descifrado AES-256-CBC · Derivación de clave PBKDF2',
           evidence: 'steghide --extract -sf capture.jpg\nopenssl enc -d -aes-256-cbc -pbkdf2 -in payload.enc\n-> archivo_auxiliar_node.txt recuperado',
-          hash: '8f038c9aa13ba93673902f42cebececabe2952e856e7ec8cd4306a649376307c'
+          hash: '8f038c9aa13ba93673902f42cebececabe2952e856e7ec8cd4306a649376307c',
+          hint: 'Extrae primero el contenido oculto de la imagen. La información recuperada contiene la clave necesaria para descifrar el archivo protegido.',
+          interpretation: 'Se recuperó información oculta mediante esteganografía. Esa información permitió obtener la clave necesaria para descifrar el archivo protegido con AES-256-CBC, revelando la existencia de un nodo auxiliar.'
         }
       ]
     },
@@ -246,7 +258,9 @@
           objective: 'Realizar un análisis forense de línea de tiempo (MACB) y detectar la manipulación anti-forense de metadatos.',
           technique: 'Forense digital · Análisis de timestamps y metadatos',
           evidence: 'fls -m / disk.img (extracto):\n/etc/systemd/system/helix-sync.service\nM: 2025-01-03  A: 2026-09-20  C: 2026-09-20  B: 2026-09-20\n-> anomalía: M anterior a B (timestomping)',
-          hash: 'a13587a3fed3906b854b849d63d0705389efd9fbf961483a0bb2bd67eac73497'
+          hash: 'a13587a3fed3906b854b849d63d0705389efd9fbf961483a0bb2bd67eac73497',
+          hint: 'Compara timestamps, metadatos y secuencia de eventos. Busca inconsistencias entre la hora registrada y la actividad real.',
+          interpretation: 'La comparación de timestamps evidenció inconsistencias en la secuencia temporal de los archivos, demostrando que una marca de tiempo había sido modificada para ocultar actividad.'
         },
         {
           id: 8,
@@ -255,7 +269,9 @@
           objective: 'Identificar el mecanismo de persistencia y verificar la firma digital RSA asociada al binario.',
           technique: 'Unidades systemd y persistencia · Verificación de firma digital RSA',
           evidence: 'systemctl cat helix-sync.service\nExecStart=/usr/local/bin/helix-syncd --daemon\nopenssl dgst -sha256 -verify pubkey.pem -signature helix-syncd.sig helix-syncd\nVerified OK',
-          hash: '17bea0dd9cf7e4b0ca366698f8efc6a82948811f86ffadf6f340db566860543f'
+          hash: '17bea0dd9cf7e4b0ca366698f8efc6a82948811f86ffadf6f340db566860543f',
+          hint: 'Revisa el servicio systemd y valida la firma digital del script. Compara qué ocurre cuando el archivo original es modificado.',
+          interpretation: 'Se identificó un servicio systemd persistente. La firma RSA permitió comprobar la integridad del script original y detectar modificaciones no autorizadas, confirmando el mecanismo de persistencia.'
         }
       ]
     },
@@ -271,7 +287,9 @@
           objective: 'Trazar la lógica de decodificación (Python) y romper el cifrado César para revelar la identidad detrás del servicio.',
           technique: 'Análisis de logs · Criptoanálisis de cifrado César · Lógica en Python',
           evidence: "helix-sync.conf:\nowner_tag = 'PDUFXV'  # shift=3\n\npython3 -c \"print(''.join(chr((ord(c)-65-3)%26+65) for c in 'PDUFXV'))\"\n-> MARCUS",
-          hash: '392f4c6a39a53fbc9d0e56d0b8c8a51001f7b5a75ce9d3147e45eb67b1e48771'
+          hash: '392f4c6a39a53fbc9d0e56d0b8c8a51001f7b5a75ce9d3147e45eb67b1e48771',
+          hint: 'Analiza el mensaje cifrado con César. Prueba desplazamientos hasta obtener una frase legible que identifique al propietario del servicio.',
+          interpretation: 'El análisis de logs y el descifrado César permitieron recuperar el mensaje SERVICE OWNER MARCUS, relacionando técnicamente la persistencia con la cuenta de Marcus Vale.'
         },
         {
           id: 10,
@@ -280,7 +298,9 @@
           objective: 'Ensamblar el manifiesto final y verificar su hash SHA-256 para cerrar la investigación y confirmar la atribución.',
           technique: 'Manifiesto de evidencia · Hash SHA-256 · Cadena de custodia',
           evidence: 'final_manifest.json:\n{ "case": "OPERATION_ECLIPSE", "evidence_items": 10, "responsible": "marcus" }\nsha256sum final_manifest.json -> sealed & verified',
-          hash: 'bc6d0926c96e1cf4d86c72638a6502739e686e6f699377188afc99ea8f258943'
+          hash: 'bc6d0926c96e1cf4d86c72638a6502739e686e6f699377188afc99ea8f258943',
+          hint: 'Verifica el manifiesto SHA-256 de las evidencias y confirma que todos los archivos mantengan su integridad antes del cierre.',
+          interpretation: 'El manifiesto SHA-256 permitió verificar la integridad de la cadena final de evidencias. Todos los archivos fueron validados correctamente, permitiendo cerrar formalmente Operación ECLIPSE.'
         }
       ]
     }
@@ -552,20 +572,39 @@
         '<div class="stage-field-value evidence">' + escapeHtml(stage.evidence) + '</div>' +
       '</div>' +
 
+      '<div class="stage-hint-row">' +
+        '<button class="btn btn-ghost btn-small stage-hint-btn" type="button">VER PISTA</button>' +
+      '</div>' +
+      '<div class="stage-hint-box hidden">' + escapeHtml(stage.hint) + '</div>' +
+
       '<div class="stage-flag-row">' +
         '<input type="text" class="stage-flag-input" placeholder="FLAG{...}" ' + (solved ? 'disabled' : '') + ' autocomplete="off" spellcheck="false">' +
         '<button class="btn btn-primary btn-small stage-submit-btn" ' + (solved ? 'disabled' : '') + '>VALIDAR</button>' +
       '</div>' +
-      '<div class="stage-feedback"></div>';
+      '<div class="stage-feedback"></div>' +
+      '<div class="stage-interpretation hidden">' +
+        '<span class="stage-interpretation-label">Interpretación del hallazgo</span>' +
+        '<div class="stage-interpretation-text">' + escapeHtml(stage.interpretation) + '</div>' +
+      '</div>';
 
     var input = wrapper.querySelector('.stage-flag-input');
     var button = wrapper.querySelector('.stage-submit-btn');
     var feedback = wrapper.querySelector('.stage-feedback');
+    var hintBtn = wrapper.querySelector('.stage-hint-btn');
+    var hintBox = wrapper.querySelector('.stage-hint-box');
+    var interpretation = wrapper.querySelector('.stage-interpretation');
+
+    hintBtn.addEventListener('click', function () {
+      var isHidden = hintBox.classList.contains('hidden');
+      hintBox.classList.toggle('hidden');
+      hintBtn.textContent = isHidden ? 'OCULTAR PISTA' : 'VER PISTA';
+    });
 
     if (solved) {
       input.value = '••••••••••••••••••••';
       feedback.textContent = 'Flag validada. Evidencia incorporada a la cadena de custodia.';
       feedback.className = 'stage-feedback ok';
+      interpretation.classList.remove('hidden');
     }
 
     function attemptSubmit() {
@@ -587,6 +626,7 @@
         var pill = wrapper.querySelector('.stage-status-pill');
         pill.textContent = '✓ RESUELTA';
         pill.classList.add('solved');
+        interpretation.classList.remove('hidden');
       } else {
         feedback.textContent = 'Flag incorrecta. Revisa la evidencia y vuelve a intentarlo.';
         feedback.className = 'stage-feedback err';
