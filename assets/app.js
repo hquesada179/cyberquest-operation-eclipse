@@ -1,16 +1,20 @@
 /* ==========================================================================
    CYBERQUEST — Operation ECLIPSE Command Center
-   app.js — Lógica de la aplicación (JavaScript vanilla, sin dependencias)
+   app.js — Lógica de la aplicación (JavaScript vanilla, sin dependencias,
+   cargado como módulo ES nativo para poder importar assets/firebase.js)
 
    Índice:
      1. SHA-256 (implementación propia, sin Web Crypto / sin Internet)
      2. Datos de la operación (personajes, misiones, etapas, insignias)
-     3. Persistencia de estado (localStorage)
+     3. Persistencia de estado (localStorage, respaldo local)
      4. Lógica de progreso (score, desbloqueos, finalización)
-     5. Renderizado de UI
-     6. Manejo de eventos
-     7. Inicialización
+     5. Sincronización con Firebase (cuentas + progreso por usuario)
+     6. Renderizado de UI
+     7. Manejo de eventos (incluye autenticación)
+     8. Inicialización
    ========================================================================== */
+
+import * as CQFirebase from './firebase.js';
 
 (function () {
   'use strict';
@@ -407,17 +411,164 @@
     return hash === stage.hash;
   }
 
+  function getCurrentMissionId() {
+    var next = MISSIONS.filter(function (m) { return !isMissionComplete(m); })[0];
+    return next ? next.id : MISSIONS[MISSIONS.length - 1].id;
+  }
+
   /* ------------------------------------------------------------------------
-     5. Renderizado de UI
+     5. Sincronización con Firebase
+     --------------------------------------------------------------------
+     El progreso remoto (users/{uid}/progress) es la fuente de verdad tras
+     iniciar sesión. localStorage se mantiene solo como respaldo local: se
+     sigue escribiendo en cada avance, pero nunca se usa para sobrescribir
+     progreso remoto igual o mayor (ver migrateLocalProgressIfNeeded).
+     ------------------------------------------------------------------------ */
+
+  var currentUser = null;
+
+  // Convierte el estado interno (mapa de booleanos) al formato que se
+  // guarda en Realtime Database.
+  function progressPayloadFromState() {
+    var completedStages = Object.keys(state.completedStages)
+      .filter(function (id) { return state.completedStages[id]; })
+      .map(function (id) { return parseInt(id, 10); });
+    var badges = MISSIONS.filter(isMissionComplete).map(function (m) { return m.badge; });
+    var score = getScore();
+    return {
+      score: score,
+      completedStages: completedStages,
+      badges: badges,
+      currentMission: getCurrentMissionId(),
+      completed: score >= TOTAL_POINTS
+    };
+  }
+
+  // Aplica un objeto de progreso remoto (o recién migrado) al estado interno.
+  function applyProgressToState(progress) {
+    state = defaultState();
+    var solvedIds = (progress && progress.completedStages) || [];
+    solvedIds.forEach(function (id) {
+      state.completedStages[id] = true;
+    });
+    state.finalScreenShown = !!(progress && progress.completed);
+    saveState();
+  }
+
+  function persistProgressToFirebase() {
+    if (!currentUser) return;
+    var payload = progressPayloadFromState();
+    CQFirebase.saveProgress(currentUser.uid, payload).catch(function () {
+      showToast('Error guardando progreso en el servidor. Se mantuvo una copia local.', 'error');
+    });
+  }
+
+  // Si el usuario ya tenía progreso en este navegador (localStorage) antes
+  // de tener cuenta, y su progreso remoto sigue en cero, se le pregunta UNA
+  // sola vez si quiere importarlo. Nunca se sobrescribe progreso remoto
+  // mayor o igual con progreso local menor.
+  function migrateLocalProgressIfNeeded(uid, remoteProgress) {
+    var migrationKey = 'cyberquest_migration_prompted_' + uid;
+    if (localStorage.getItem(migrationKey)) return Promise.resolve();
+
+    var localRaw;
+    try {
+      localRaw = localStorage.getItem(STORAGE_KEY);
+    } catch (e) {
+      localRaw = null;
+    }
+    if (!localRaw) {
+      localStorage.setItem(migrationKey, '1');
+      return Promise.resolve();
+    }
+
+    var localParsed;
+    try {
+      localParsed = JSON.parse(localRaw);
+    } catch (e) {
+      localParsed = null;
+    }
+    localStorage.setItem(migrationKey, '1'); // se pregunta una sola vez, se acepte o no
+
+    if (!localParsed || !localParsed.completedStages) return Promise.resolve();
+
+    var localSolvedCount = 0;
+    MISSIONS.forEach(function (m) {
+      m.stages.forEach(function (s) {
+        if (localParsed.completedStages[s.id]) localSolvedCount++;
+      });
+    });
+    var localScore = localSolvedCount * POINTS_PER_STAGE;
+    var remoteScore = (remoteProgress && remoteProgress.score) || 0;
+
+    if (localScore <= 0 || localScore <= remoteScore) {
+      return Promise.resolve(); // nada que importar, o lo remoto ya es igual o mejor
+    }
+
+    var wantsImport = window.confirm(
+      'Se detectó progreso guardado localmente en este navegador (' + localScore + ' / ' + TOTAL_POINTS + ' PTS).\n' +
+      '¿Deseas importarlo a tu cuenta?'
+    );
+    if (!wantsImport) return Promise.resolve();
+
+    var tempCompleted = {};
+    MISSIONS.forEach(function (m) {
+      m.stages.forEach(function (s) {
+        tempCompleted[s.id] = !!localParsed.completedStages[s.id];
+      });
+    });
+    var solvedIds = Object.keys(tempCompleted)
+      .filter(function (id) { return tempCompleted[id]; })
+      .map(function (id) { return parseInt(id, 10); });
+    var badges = MISSIONS.filter(function (m) {
+      return m.stages.every(function (s) { return tempCompleted[s.id]; });
+    }).map(function (m) { return m.badge; });
+    var nextMission = MISSIONS.filter(function (m) {
+      return !m.stages.every(function (s) { return tempCompleted[s.id]; });
+    })[0];
+
+    var payload = {
+      score: localScore,
+      completedStages: solvedIds,
+      badges: badges,
+      currentMission: nextMission ? nextMission.id : MISSIONS[MISSIONS.length - 1].id,
+      completed: localScore >= TOTAL_POINTS
+    };
+
+    return CQFirebase.saveProgress(uid, payload).catch(function () {
+      showToast('No se pudo importar tu progreso local. Intenta de nuevo más tarde.', 'error');
+    });
+  }
+
+  /* ------------------------------------------------------------------------
+     6. Renderizado de UI
      ------------------------------------------------------------------------ */
 
   var el = {}; // cache de referencias DOM, se llena en initDomRefs()
 
   function initDomRefs() {
+    el.authScreen = document.getElementById('auth-screen');
+    el.authError = document.getElementById('auth-error');
+    el.btnGoogleLogin = document.getElementById('btn-google-login');
+    el.loginForm = document.getElementById('login-form');
+    el.loginEmail = document.getElementById('login-email');
+    el.loginPassword = document.getElementById('login-password');
+    el.btnLogin = document.getElementById('btn-login');
+    el.registerForm = document.getElementById('register-form');
+    el.registerName = document.getElementById('register-name');
+    el.registerEmail = document.getElementById('register-email');
+    el.registerPassword = document.getElementById('register-password');
+    el.registerPasswordConfirm = document.getElementById('register-password-confirm');
+    el.btnRegister = document.getElementById('btn-register');
+    el.linkShowRegister = document.getElementById('link-show-register');
+    el.linkShowLogin = document.getElementById('link-show-login');
+
     el.bootScreen = document.getElementById('boot-screen');
     el.app = document.getElementById('app');
     el.btnEnterOperation = document.getElementById('btn-enter-operation');
     el.btnReset = document.getElementById('btn-reset');
+    el.btnLogout = document.getElementById('btn-logout');
+    el.topbarUserName = document.getElementById('topbar-user-name');
 
     el.topbarScoreValue = document.getElementById('topbar-score-value');
     el.operationStatus = document.getElementById('operation-status');
@@ -666,10 +817,6 @@
       .replace(/'/g, '&#039;');
   }
 
-  /* ------------------------------------------------------------------------
-     6. Manejo de eventos
-     ------------------------------------------------------------------------ */
-
   var activeMissionId = null;
 
   function openMissionModal(missionId) {
@@ -704,6 +851,10 @@
       showToast('Insignia desbloqueada: ' + mission.badge, 'badge');
     }
 
+    // 1. UI ya actualizada arriba. 2. Sincroniza con Firebase. 3. localStorage
+    // ya quedó actualizado como respaldo (saveState() más arriba).
+    persistProgressToFirebase();
+
     // ¿Se alcanzó el puntaje total? -> pantalla final
     if (getScore() >= TOTAL_POINTS) {
       setTimeout(showFinalScreen, 500);
@@ -726,7 +877,7 @@
 
   function handleReset() {
     var confirmed = window.confirm(
-      '¿Reiniciar todo el progreso de Operation ECLIPSE?\nEsta acción borrará el puntaje, las etapas resueltas y las insignias guardadas en este equipo.'
+      '¿Reiniciar todo el progreso de Operation ECLIPSE?\nEsta acción borrará el puntaje, las etapas resueltas y las insignias guardadas en tu cuenta y en este equipo.'
     );
     if (!confirmed) return;
     state = defaultState();
@@ -735,6 +886,12 @@
     hideFinalScreen();
     renderAll();
     showToast('Progreso reiniciado.', 'error');
+
+    if (currentUser) {
+      CQFirebase.resetProgress(currentUser.uid).catch(function () {
+        showToast('Error guardando progreso: no se pudo reiniciar en el servidor.', 'error');
+      });
+    }
   }
 
   function showToast(message, type) {
@@ -749,16 +906,175 @@
     }, 3200);
   }
 
+  function bootDoneKey(uid) {
+    return 'cyberquest_bootdone_' + uid;
+  }
+
   function enterOperation() {
     el.bootScreen.classList.add('hidden');
     el.app.classList.remove('hidden');
-    state.bootDone = true;
-    saveState();
+    if (currentUser) {
+      try { localStorage.setItem(bootDoneKey(currentUser.uid), '1'); } catch (e) { /* ignorar */ }
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     7. Manejo de eventos (incluye autenticación)
+     ------------------------------------------------------------------------ */
+
+  function showAuthError(message) {
+    el.authError.textContent = message;
+    el.authError.classList.remove('hidden');
+  }
+
+  function clearAuthError() {
+    el.authError.textContent = '';
+    el.authError.classList.add('hidden');
+  }
+
+  function setAuthBusy(busy) {
+    el.btnLogin.disabled = busy;
+    el.btnRegister.disabled = busy;
+    el.btnGoogleLogin.disabled = busy;
+  }
+
+  function showLoginForm() {
+    clearAuthError();
+    el.registerForm.classList.add('hidden');
+    el.linkShowLogin.classList.add('hidden');
+    el.loginForm.classList.remove('hidden');
+    el.linkShowRegister.classList.remove('hidden');
+  }
+
+  function showRegisterForm() {
+    clearAuthError();
+    el.loginForm.classList.add('hidden');
+    el.linkShowRegister.classList.add('hidden');
+    el.registerForm.classList.remove('hidden');
+    el.linkShowLogin.classList.remove('hidden');
+  }
+
+  function handleLoginSubmit(ev) {
+    ev.preventDefault();
+    clearAuthError();
+    var email = el.loginEmail.value.trim();
+    var password = el.loginPassword.value;
+    if (!email || !password) {
+      showAuthError('Completa todos los campos.');
+      return;
+    }
+    setAuthBusy(true);
+    CQFirebase.loginAccount(email, password)
+      .catch(function (err) { showAuthError(CQFirebase.mapFirebaseError(err)); })
+      .then(function () { setAuthBusy(false); });
+  }
+
+  function handleRegisterSubmit(ev) {
+    ev.preventDefault();
+    clearAuthError();
+    var name = el.registerName.value.trim();
+    var email = el.registerEmail.value.trim();
+    var password = el.registerPassword.value;
+    var confirmPassword = el.registerPasswordConfirm.value;
+
+    if (!name || !email || !password || !confirmPassword) {
+      showAuthError('Completa todos los campos.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      showAuthError('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setAuthBusy(true);
+    CQFirebase.registerAccount(name, email, password)
+      .catch(function (err) { showAuthError(CQFirebase.mapFirebaseError(err)); })
+      .then(function () { setAuthBusy(false); });
+  }
+
+  function handleGoogleLogin() {
+    clearAuthError();
+    setAuthBusy(true);
+    CQFirebase.loginWithGoogle()
+      .catch(function (err) { showAuthError(CQFirebase.mapFirebaseError(err)); })
+      .then(function () { setAuthBusy(false); });
+  }
+
+  function handleLogout() {
+    CQFirebase.logoutAccount().catch(function () {
+      showToast('No se pudo cerrar sesión. Intenta de nuevo.', 'error');
+    });
+  }
+
+  // Se dispara al cargar la página y en cada cambio de sesión (login/logout).
+  function handleAuthChange(user) {
+    if (user) {
+      currentUser = user;
+      el.authScreen.classList.add('hidden');
+
+      CQFirebase.fetchProfile(user.uid)
+        .then(function (profile) {
+          el.topbarUserName.textContent = (profile && profile.name) || user.displayName || (user.email ? user.email.split('@')[0] : 'Analista');
+          return CQFirebase.fetchProgress(user.uid);
+        })
+        .then(function (remoteProgress) {
+          if (!remoteProgress) {
+            // Cuenta recién creada o perfil sin nodo de progreso todavía:
+            // inicializa el árbol en 0 (misma forma que crea registerAccount).
+            return CQFirebase.resetProgress(user.uid).then(function () {
+              return { score: 0, completedStages: [], badges: [], currentMission: 1, completed: false };
+            });
+          }
+          return remoteProgress;
+        })
+        .then(function (remoteProgress) {
+          return migrateLocalProgressIfNeeded(user.uid, remoteProgress).then(function () {
+            return CQFirebase.fetchProgress(user.uid);
+          });
+        })
+        .then(function (finalProgress) {
+          applyProgressToState(finalProgress || { score: 0, completedStages: [], badges: [], currentMission: 1, completed: false });
+          renderAll();
+
+          var alreadyBooted = false;
+          try { alreadyBooted = localStorage.getItem(bootDoneKey(user.uid)) === '1'; } catch (e) { /* ignorar */ }
+          if (alreadyBooted) {
+            el.bootScreen.classList.add('hidden');
+            el.app.classList.remove('hidden');
+          } else {
+            el.bootScreen.classList.remove('hidden');
+            el.app.classList.add('hidden');
+          }
+        })
+        .catch(function () {
+          showToast('No se pudo cargar tu progreso. Intenta recargar la página.', 'error');
+        });
+    } else {
+      currentUser = null;
+      state = defaultState();
+      el.app.classList.add('hidden');
+      el.bootScreen.classList.add('hidden');
+      el.loginEmail.value = '';
+      el.loginPassword.value = '';
+      el.registerName.value = '';
+      el.registerEmail.value = '';
+      el.registerPassword.value = '';
+      el.registerPasswordConfirm.value = '';
+      showLoginForm();
+      el.authScreen.classList.remove('hidden');
+    }
   }
 
   function bindEvents() {
+    el.btnGoogleLogin.addEventListener('click', handleGoogleLogin);
+    el.loginForm.addEventListener('submit', handleLoginSubmit);
+    el.registerForm.addEventListener('submit', handleRegisterSubmit);
+    el.linkShowRegister.addEventListener('click', function (ev) { ev.preventDefault(); showRegisterForm(); });
+    el.linkShowLogin.addEventListener('click', function (ev) { ev.preventDefault(); showLoginForm(); });
+
     el.btnEnterOperation.addEventListener('click', enterOperation);
     el.btnReset.addEventListener('click', handleReset);
+    el.btnLogout.addEventListener('click', handleLogout);
     el.btnCloseModal.addEventListener('click', closeMissionModal);
     el.btnCloseFinal.addEventListener('click', hideFinalScreen);
 
@@ -777,26 +1093,14 @@
   }
 
   /* ------------------------------------------------------------------------
-     7. Inicialización
+     8. Inicialización
      ------------------------------------------------------------------------ */
 
   function init() {
     initDomRefs();
     bindEvents();
-    renderAll();
-
-    // Si el usuario ya había entrado a la operación en una sesión previa,
-    // salta directamente al dashboard en vez de mostrar el boot screen.
-    if (state.bootDone) {
-      el.bootScreen.classList.add('hidden');
-      el.app.classList.remove('hidden');
-    }
-
-    // Si el progreso guardado ya estaba completo, ofrece ver el cierre.
-    if (getScore() >= TOTAL_POINTS && state.finalScreenShown) {
-      // No se auto-muestra en cada carga para no ser intrusivo;
-      // el usuario puede revisar el dashboard, que ya refleja 5000/5000.
-    }
+    showLoginForm();
+    CQFirebase.onAuthChange(handleAuthChange);
   }
 
   document.addEventListener('DOMContentLoaded', init);
