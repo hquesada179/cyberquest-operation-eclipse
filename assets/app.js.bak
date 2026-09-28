@@ -171,38 +171,24 @@ import * as CQFirebase from './firebase.js';
         {
           id: 1,
           title: 'The Ghost Signal',
-          desc: 'HELIX-SRV01 (192.168.56.105) generó un beacon saliente anómalo hacia un host externo desconocido, fuera del horario habitual de operación. El registro de captura incluye un campo de identificación de servicio sin decodificar.',
-          objective: 'Reconstruir la enumeración inicial del incidente decodificando el identificador de servicio capturado en el log de red.',
+          desc: 'Un beacon anómalo salió de HELIX-SRV01 hacia un host externo desconocido fuera del horario habitual de operación.',
+          objective: 'Reconstruir la enumeración inicial del servicio y decodificar el identificador de la señal capturada.',
           technique: 'Reconocimiento y enumeración de servicios · Codificación Base64',
-          evidence: 'capture.log (HELIX-SRV01):\n[03:12:41] outbound beacon detected -> host externo no autorizado\nservice-id (base64): RkxBR3tTSUdOQUxfR0hPU1RfSURFTlRJRklFRH0=',
-          techData: [
-            ['Archivo de evidencia', 'capture.log'],
-            ['Campo a analizar', 'service-id'],
-            ['Codificación detectada', 'Base64']
-          ],
+          evidence: 'capture.log:\n[srv01] outbound beacon detected\nservice-id (base64): RkxBR3tTSUdOQUxfR0hPU1RfSURFTlRJRklFRH0=',
           hash: '1575bd1c92a3d398dffc596f95f32c1e879bb1215866bfcb3bad5de374b4b286',
-          hint: 'El campo "service-id" no está en texto plano. Identifica en qué codificación está representado y aplica el proceso inverso para obtener el identificador real de la señal.',
+          hint: 'Revisa el contenido codificado en Base64. Decodifica el identificador de servicio y analiza qué señal está representando.',
           interpretation: 'Se detectó una señal saliente anómala desde HELIX-SRV01. Al decodificar el identificador en Base64 se confirmó que correspondía a la señal inicial asociada con Operación ECLIPSE.'
         },
         {
           id: 2,
           title: 'Compromised Credentials',
-          desc: 'Los registros de autenticación SSH de HELIX-SRV01 (192.168.56.105) muestran decenas de intentos fallidos contra la cuenta voss, seguidos de un acceso exitoso. Una auditoría de políticas de contraseña reveló el patrón estructural usado para generarla.',
-          objective: 'Reconstruir el ataque contra el servicio SSH (puerto 22) y confirmar cómo la cuenta voss fue comprometida a partir de una contraseña predecible.',
-          technique: 'Generación de diccionario dirigido · Ataque de fuerza bruta contra SSH',
-          evidence: 'auth.log (HELIX-SRV01 · 192.168.56.105):\nsshd: Failed password for voss from 10.0.4.17 port 51101 ssh2\nsshd: Failed password for voss from 10.0.4.17 port 51102 ssh2\n... (47 intentos fallidos registrados)\nsshd: Accepted password for voss from 10.0.4.17 port 51122 ssh2\n\npassword_policy_audit.txt:\nCuenta voss - patrón de contraseña detectado: 3 letras minúsculas + 3 dígitos (formato tipo "abc123")',
-          techData: [
-            ['Servidor', 'HELIX-SRV01 (192.168.56.105)'],
-            ['Servicio', 'SSH'],
-            ['Puerto', '22'],
-            ['Usuario objetivo', 'voss'],
-            ['Patrón de contraseña', '3 letras minúsculas + 3 números (ej. abc123)'],
-            ['Evidencia a recuperar tras el acceso', 'mission2.txt']
-          ],
+          desc: 'Los registros de autenticación SSH de HELIX-SRV01 muestran intentos repetidos seguidos de un login exitoso.',
+          objective: 'Reconstruir el ataque de fuerza bruta y confirmar qué cuenta fue comprometida por una contraseña débil.',
+          technique: 'Ataque de diccionario (Hydra) · Autenticación SSH',
+          evidence: 'auth.log:\nsshd[victim]: 47 failed password attempts (dictionary pattern)\nsshd[victim]: Accepted password for svc-legacy from 10.0.4.17 port 51122 ssh2',
           hash: 'f5f50977bdd639d5895baf9fb478626534c056532cd2f17ef2da0d3e2e0f26d4',
-          hint: 'El patrón de la contraseña reduce enormemente el espacio de búsqueda. Piensa cómo generar sistemáticamente todas las combinaciones de 3 letras minúsculas seguidas de 3 números, y qué herramienta de auditoría te permitiría probarlas contra el servicio SSH en el puerto 22.',
-          hint2: 'No necesitas un diccionario externo. El patrón de contraseña permite generar una lista de candidatos de forma controlada.',
-          interpretation: 'Los registros muestran múltiples intentos fallidos de autenticación SSH contra la cuenta voss en HELIX-SRV01, seguidos de un acceso exitoso. La contraseña, generada a partir de un patrón predecible (3 letras minúsculas + 3 números), fue comprometida mediante un ataque de fuerza bruta dirigido, confirmando la debilidad de la credencial.'
+          hint: 'Observa la cantidad de intentos fallidos de SSH y qué ocurre inmediatamente después. Piensa en un ataque de diccionario o fuerza bruta.',
+          interpretation: 'Los registros muestran múltiples intentos fallidos de autenticación SSH seguidos de un acceso exitoso. Este patrón indica que una credencial débil fue comprometida mediante un ataque de diccionario o fuerza bruta.'
         }
       ]
     },
@@ -214,34 +200,24 @@ import * as CQFirebase from './firebase.js';
         {
           id: 3,
           title: "Elena's File",
-          desc: 'En el directorio de comunicaciones de Elena Torres se localizó un archivo codificado (comms_elena.b64) con indicios de manipulación durante su tránsito. Un manifiesto de integridad acompaña al archivo.',
-          objective: 'Verificar la integridad del archivo contra el hash publicado en su manifiesto y, solo si coincide, decodificar su contenido en Base64.',
-          technique: 'Verificación de integridad SHA-256 · Decodificación Base64',
-          evidence: 'Directorio de Elena (/home/elena/comms/):\n- comms_elena.b64 (contenido codificado a recuperar)\n- manifest.json:\n  { "file": "comms_elena.b64", "sha256_expected": "<hash publicado en el manifiesto>" }',
-          techData: [
-            ['Archivo a verificar', 'comms_elena.b64'],
-            ['Hash esperado', 'campo sha256_expected en manifest.json'],
-            ['Paso siguiente', 'decodificar contenido Base64 tras validar integridad']
-          ],
+          desc: 'Se encontró un archivo codificado en el directorio de Elena Torres, con indicios de manipulación durante su tránsito.',
+          objective: 'Decodificar el contenido en Base64 y verificar su integridad contra el checksum SHA-256 publicado en el manifiesto.',
+          technique: 'Decodificación Base64 · Verificación de integridad SHA-256',
+          evidence: 'manifest.json:\n{ "file": "comms_elena.b64", "sha256_expected": "match" }\nintegrity check: PASSED -> contenido recuperado',
           hash: '59c2232c667a0bb991f1c6907ac8848fad0c616bb15fe9335c7076eff87dc020',
-          hint: 'Antes de decodificar nada, calcula el SHA-256 de comms_elena.b64 y compáralo con el valor sha256_expected del manifiesto. Si coinciden, el contenido no fue alterado y puedes proceder a decodificarlo.',
-          interpretation: 'El archivo de Elena fue recuperado al decodificar su contenido Base64. Antes de eso, el SHA-256 calculado coincidió con el valor esperado en el manifiesto, confirmando que la comunicación recuperada mantenía su integridad.'
+          hint: 'Primero recupera el contenido codificado y luego verifica si su SHA-256 coincide con el valor esperado.',
+          interpretation: 'El archivo de Elena fue recuperado al decodificar su contenido Base64. Después, el SHA-256 coincidió con el valor esperado, confirmando que la comunicación recuperada mantenía su integridad.'
         },
         {
           id: 4,
           title: 'Marcus File',
-          desc: 'La cuenta marcus ejecutó una exportación de datos fuera de su ventana habitual de mantenimiento. Existen varios registros que deben cruzarse para determinar si la operación fue autorizada.',
-          objective: 'Correlacionar el log de exportación con los registros de tickets y de ventanas de mantenimiento para determinar si la exportación tuvo autorización.',
-          technique: 'Correlación de logs, CSV y registros de exportación',
-          evidence: 'export.log:\n2026-09-21 03:14:02 user=marcus action=EXPORT target=research_db size=1.2GB\n\nticketing_system.csv:\nticket_id,user,resource,status\n(no existe entrada asociada a esta exportación)\n\nmaintenance_window.csv:\n(no hay ventana de mantenimiento autorizada para el 2026-09-21 03:14)',
-          techData: [
-            ['Registros a correlacionar', 'export.log, ticketing_system.csv, maintenance_window.csv'],
-            ['Cuenta investigada', 'marcus'],
-            ['Recurso exportado', 'research_db']
-          ],
+          desc: 'Los registros de exportación muestran que la cuenta de Marcus Vale generó una exportación de datos fuera de su ventana habitual de mantenimiento.',
+          objective: 'Correlacionar metadatos de archivo y registros de exportación para determinar si la operación fue autorizada.',
+          technique: 'Análisis de archivos, logs y exportaciones',
+          evidence: 'export.log:\n2026-09-21 03:14:02 user=marcus action=EXPORT target=research_db size=1.2GB\napproval_ticket: NOT_FOUND',
           hash: '690df1c81e7ba7ab5d3e1657b76daf4ee86152f14b8d210f6035acde71eacde1',
-          hint: 'Cruza los tres registros: ¿quién ejecutó la acción, sobre qué recurso, y existe un ticket o una ventana de mantenimiento que la respalde?',
-          interpretation: 'Los registros muestran que la cuenta marcus ejecutó una exportación del recurso research_db y no existe un ticket de aprobación ni una ventana de mantenimiento asociada. Por ello se concluye que la exportación fue no autorizada.'
+          hint: 'Fíjate en quién ejecutó la exportación, qué recurso fue exportado y especialmente si existe un ticket de autorización.',
+          interpretation: 'Los registros muestran que la cuenta marcus ejecutó una exportación del recurso research_db y no existe un ticket de aprobación asociado. Por ello se concluye que la exportación fue no autorizada.'
         }
       ]
     },
@@ -253,34 +229,23 @@ import * as CQFirebase from './firebase.js';
         {
           id: 5,
           title: 'Transfer Destination',
-          desc: 'Una captura de tráfico (capture.pcap) registró una sesión TCP sostenida desde HELIX-SRV01 hacia una IP externa, justo después de la exportación no autorizada.',
-          objective: 'Analizar capture.pcap para reconstruir el flujo TCP/SSH y confirmar el destino real de la transferencia.',
+          desc: 'Una captura de tráfico (PCAP) registró una sesión TCP/SSH sostenida hacia una IP externa, justo después de la exportación no autorizada.',
+          objective: 'Analizar la captura para reconstruir el flujo TCP/SSH y confirmar el destino real de la transferencia.',
           technique: 'Análisis de PCAP con Wireshark · Reensamblado de flujos TCP/SSH',
-          evidence: 'capture.pcap (resumen de streams):\nstream[12] 192.168.56.105:51330 -> 203.0.113.77:22 (SSH)\nbytes=884213\nsession-id: ECL-NET-EX-05\ntraffic-status: EXTERNAL_TRANSFER_DETECTED',
-          techData: [
-            ['Archivo a analizar', 'capture.pcap'],
-            ['Origen', '192.168.56.105 (HELIX-SRV01)'],
-            ['Puerto de interés', '22/TCP (SSH)'],
-            ['Identificador de sesión', 'buscar en el stream reconstruido']
-          ],
+          evidence: 'capture.pcap (resumen):\nstream[12] 192.168.56.105:51330 -> 203.0.113.77:22 (SSH)\nbytes=884213\nsession-id: ECL-NET-EX-05\ntraffic-status: EXTERNAL_TRANSFER_DETECTED',
           hash: '851d106c9601c81b7ec6ed444a70bc4da80bcc2a2be17cd77f3ced1fdb9ce7a6',
-          hint: 'Filtra el tráfico por la IP de HELIX-SRV01 y el puerto SSH. Sigue (follow) el flujo TCP correspondiente para identificar la IP de destino y el identificador de sesión.',
+          hint: 'Filtra el tráfico por dirección IP y puerto SSH. Revisa el flujo TCP y busca evidencia de una sesión asociada a ECLIPSE.',
           interpretation: 'El análisis del PCAP muestra tráfico SSH entre HELIX-SRV01 y una dirección externa. La correlación de IP, puerto y sesión confirma una transferencia de datos fuera del entorno autorizado.'
         },
         {
           id: 6,
           title: 'The Hidden Package',
-          desc: 'El paquete exfiltrado incluía una imagen (capture.jpg) con contenido oculto embebido mediante esteganografía. Ese contenido se relaciona con un archivo cifrado (payload.enc) encontrado junto a ella.',
-          objective: 'Extraer el contenido oculto de la imagen y usarlo para descifrar payload.enc (AES-256-CBC, clave derivada con PBKDF2).',
-          technique: 'Extracción esteganográfica · Descifrado AES-256-CBC · Derivación de clave PBKDF2',
-          evidence: 'Archivos recuperados junto al paquete exfiltrado:\n- capture.jpg (contiene datos ocultos embebidos)\n- payload.enc (cifrado con AES-256-CBC, derivación PBKDF2)',
-          techData: [
-            ['Imagen con datos ocultos', 'capture.jpg'],
-            ['Archivo cifrado', 'payload.enc'],
-            ['Esquema de cifrado', 'AES-256-CBC + PBKDF2']
-          ],
+          desc: 'El paquete exfiltrado incluía una imagen con un archivo oculto embebido mediante esteganografía, protegido con contraseña.',
+          objective: 'Extraer el contenedor oculto y descifrarlo (AES-256-CBC, clave derivada con PBKDF2) para revelar su contenido.',
+          technique: 'Extracción esteganográfica (Steghide) · Descifrado AES-256-CBC · Derivación de clave PBKDF2',
+          evidence: 'steghide --extract -sf capture.jpg\nopenssl enc -d -aes-256-cbc -pbkdf2 -in payload.enc\n-> archivo_auxiliar_node.txt recuperado',
           hash: '8f038c9aa13ba93673902f42cebececabe2952e856e7ec8cd4306a649376307c',
-          hint: 'Primero extrae el contenido oculto de la imagen. Lo que encuentres ahí es justo lo que necesitas para descifrar payload.enc.',
+          hint: 'Extrae primero el contenido oculto de la imagen. La información recuperada contiene la clave necesaria para descifrar el archivo protegido.',
           interpretation: 'Se recuperó información oculta mediante esteganografía. Esa información permitió obtener la clave necesaria para descifrar el archivo protegido con AES-256-CBC, revelando la existencia de un nodo auxiliar.'
         }
       ]
@@ -293,33 +258,23 @@ import * as CQFirebase from './firebase.js';
         {
           id: 7,
           title: 'Altered Timestamp',
-          desc: 'Los metadatos del sistema de archivos en HELIX-SRV01 muestran inconsistencias en la unidad /etc/systemd/system/eclipse-monitor.service: su timestamp de modificación es anterior al de creación.',
-          objective: 'Comparar las referencias temporales del archivo para detectar la manipulación anti-forense de metadatos (timestomping).',
-          technique: 'Forense digital · Análisis de timestamps MACB',
-          evidence: 'fls -m / disk.img (extracto):\n/etc/systemd/system/eclipse-monitor.service\nM: 2025-01-03  A: 2026-09-20  C: 2026-09-20  B: 2026-09-20\n-> anomalía: M anterior a B',
-          techData: [
-            ['Archivo a inspeccionar', '/etc/systemd/system/eclipse-monitor.service'],
-            ['Referencia 1', 'M (Modificación) = 2025-01-03'],
-            ['Referencia 2', 'B (Birth / creación) = 2026-09-20']
-          ],
+          desc: 'Los metadatos del sistema de archivos en HELIX-SRV01 muestran inconsistencias: timestamps de modificación anteriores a los de creación.',
+          objective: 'Realizar un análisis forense de línea de tiempo (MACB) y detectar la manipulación anti-forense de metadatos.',
+          technique: 'Forense digital · Análisis de timestamps y metadatos',
+          evidence: 'fls -m / disk.img (extracto):\n/etc/systemd/system/helix-sync.service\nM: 2025-01-03  A: 2026-09-20  C: 2026-09-20  B: 2026-09-20\n-> anomalía: M anterior a B (timestomping)',
           hash: 'a13587a3fed3906b854b849d63d0705389efd9fbf961483a0bb2bd67eac73497',
-          hint: 'Compara la referencia M (modificación) con la referencia B (creación) del mismo archivo. Si un archivo aparece "modificado" antes de haber sido "creado", hay manipulación de metadatos.',
-          interpretation: 'La comparación de timestamps evidenció inconsistencias en la secuencia temporal del archivo, demostrando que una marca de tiempo había sido modificada para ocultar actividad.'
+          hint: 'Compara timestamps, metadatos y secuencia de eventos. Busca inconsistencias entre la hora registrada y la actividad real.',
+          interpretation: 'La comparación de timestamps evidenció inconsistencias en la secuencia temporal de los archivos, demostrando que una marca de tiempo había sido modificada para ocultar actividad.'
         },
         {
           id: 8,
           title: 'The Persistent Service',
-          desc: 'Se identificó una unidad systemd, eclipse-monitor.service, ejecutando un script con privilegios elevados. El script cuenta con una firma digital que debe validarse contra una clave pública.',
-          objective: 'Localizar el script asociado al servicio y verificar su firma digital para determinar si el binario en ejecución corresponde al original.',
+          desc: 'Se identificó una unidad systemd ejecutándose con privilegios elevados, validando su binario mediante una firma RSA.',
+          objective: 'Identificar el mecanismo de persistencia y verificar la firma digital RSA asociada al binario.',
           technique: 'Unidades systemd y persistencia · Verificación de firma digital RSA',
-          evidence: 'systemctl cat eclipse-monitor.service:\nExecStart=/usr/local/bin/eclipse-monitor.sh\n\nArchivos relacionados en /etc/eclipse-monitor/:\n- pubkey.pem (clave pública)\n- eclipse-monitor.sig (firma del script original)\n\nResultado posible de verificación:\nVerified OK          (script sin modificar)\nVerification failure  (script alterado)',
-          techData: [
-            ['Servicio', 'eclipse-monitor.service'],
-            ['Script asociado', '/usr/local/bin/eclipse-monitor.sh'],
-            ['Clave pública / firma', '/etc/eclipse-monitor/pubkey.pem y eclipse-monitor.sig']
-          ],
+          evidence: 'systemctl cat helix-sync.service\nExecStart=/usr/local/bin/helix-syncd --daemon\nopenssl dgst -sha256 -verify pubkey.pem -signature helix-syncd.sig helix-syncd\nVerified OK',
           hash: '17bea0dd9cf7e4b0ca366698f8efc6a82948811f86ffadf6f340db566860543f',
-          hint: 'Localiza el script que ejecuta el servicio y busca en su directorio de configuración la clave pública y la firma asociadas. Verifica si el script actual corresponde a la firma original.',
+          hint: 'Revisa el servicio systemd y valida la firma digital del script. Compara qué ocurre cuando el archivo original es modificado.',
           interpretation: 'Se identificó un servicio systemd persistente. La firma RSA permitió comprobar la integridad del script original y detectar modificaciones no autorizadas, confirmando el mecanismo de persistencia.'
         }
       ]
@@ -332,33 +287,23 @@ import * as CQFirebase from './firebase.js';
         {
           id: 9,
           title: 'Identity Behind the Service',
-          desc: 'La configuración del servicio persistente (eclipse-monitor.conf) contiene una etiqueta de propietario (owner_tag) ofuscada con un cifrado clásico por desplazamiento. El log de auditoría señala dónde buscar.',
-          objective: 'Revisar el log de auditoría y el archivo de configuración cifrado, y romper el cifrado por desplazamiento para revelar la identidad detrás del servicio.',
-          technique: 'Análisis de logs de auditoría · Criptoanálisis de cifrado César · Lógica en Python',
-          evidence: "audit.log:\n[AUDIT] eclipse-monitor.conf modificado por proceso desconocido\n\neclipse-monitor.conf:\nowner_tag = 'PDUFXV'",
-          techData: [
-            ['Log a revisar', 'audit.log'],
-            ['Archivo cifrado', 'eclipse-monitor.conf (campo owner_tag)'],
-            ['Tipo de cifrado', 'desplazamiento clásico (César)']
-          ],
+          desc: 'La configuración del servicio persistente contiene una etiqueta de propietario ofuscada con un cifrado César.',
+          objective: 'Trazar la lógica de decodificación (Python) y romper el cifrado César para revelar la identidad detrás del servicio.',
+          technique: 'Análisis de logs · Criptoanálisis de cifrado César · Lógica en Python',
+          evidence: "helix-sync.conf:\nowner_tag = 'PDUFXV'  # shift=3\n\npython3 -c \"print(''.join(chr((ord(c)-65-3)%26+65) for c in 'PDUFXV'))\"\n-> MARCUS",
           hash: '392f4c6a39a53fbc9d0e56d0b8c8a51001f7b5a75ce9d3147e45eb67b1e48771',
-          hint: 'Un cifrado César solo tiene 25 desplazamientos posibles. Prueba sistemáticamente cada uno (por ejemplo con un pequeño script en Python) hasta obtener una palabra legible.',
-          interpretation: 'El análisis del log de auditoría condujo al archivo de configuración cifrado. Al romper el cifrado César se recuperó la identidad del propietario del servicio, relacionando técnicamente la persistencia con la cuenta de Marcus Vale.'
+          hint: 'Analiza el mensaje cifrado con César. Prueba desplazamientos hasta obtener una frase legible que identifique al propietario del servicio.',
+          interpretation: 'El análisis de logs y el descifrado César permitieron recuperar el mensaje SERVICE OWNER MARCUS, relacionando técnicamente la persistencia con la cuenta de Marcus Vale.'
         },
         {
           id: 10,
           title: 'Final Chain of Evidence',
-          desc: 'Para cerrar formalmente Operation ECLIPSE, toda la evidencia recuperada debe compilarse y verificarse contra un manifiesto final de cadena de custodia.',
-          objective: 'Verificar el hash SHA-256 del manifiesto final y confirmar que las evidencias listadas mantienen su integridad antes del cierre.',
-          technique: 'Manifiesto de evidencia · Verificación SHA-256 · Cadena de custodia',
-          evidence: 'final_manifest.json:\n{ "case": "OPERATION_ECLIPSE", "evidence_items": 10, "responsible": "marcus" }\n\nsha256sum final_manifest.json -> comparar contra el valor publicado',
-          techData: [
-            ['Manifiesto a usar', 'final_manifest.json'],
-            ['Evidencias a verificar', 'los 10 elementos listados en el manifiesto'],
-            ['Objetivo', 'validar integridad SHA-256 antes de cerrar el caso']
-          ],
+          desc: 'Para cerrar formalmente Operation ECLIPSE, toda la evidencia recuperada debe compilarse en un manifiesto de cadena de custodia verificable.',
+          objective: 'Ensamblar el manifiesto final y verificar su hash SHA-256 para cerrar la investigación y confirmar la atribución.',
+          technique: 'Manifiesto de evidencia · Hash SHA-256 · Cadena de custodia',
+          evidence: 'final_manifest.json:\n{ "case": "OPERATION_ECLIPSE", "evidence_items": 10, "responsible": "marcus" }\nsha256sum final_manifest.json -> sealed & verified',
           hash: 'bc6d0926c96e1cf4d86c72638a6502739e686e6f699377188afc99ea8f258943',
-          hint: 'Calcula el SHA-256 del manifiesto final y compáralo con el valor publicado. Si coincide, todas las evidencias listadas mantienen su integridad y el caso puede cerrarse.',
+          hint: 'Verifica el manifiesto SHA-256 de las evidencias y confirma que todos los archivos mantengan su integridad antes del cierre.',
           interpretation: 'El manifiesto SHA-256 permitió verificar la integridad de la cadena final de evidencias. Todos los archivos fueron validados correctamente, permitiendo cerrar formalmente Operación ECLIPSE.'
         }
       ]
@@ -743,23 +688,6 @@ import * as CQFirebase from './firebase.js';
     });
   }
 
-  // Bloque opcional "DATOS TÉCNICOS": únicamente los parámetros necesarios
-  // para resolver la etapa (usuario, servicio, puerto, archivo, patrón...),
-  // nunca comandos completos ni la solución.
-  function renderTechData(stage) {
-    if (!stage.techData || !stage.techData.length) return '';
-    var rows = stage.techData.map(function (pair) {
-      return '<div class="stage-tech-item">' +
-        '<span class="stage-tech-key">' + escapeHtml(pair[0]) + '</span>' +
-        '<span class="stage-tech-val">' + escapeHtml(pair[1]) + '</span>' +
-        '</div>';
-    }).join('');
-    return '<div class="stage-field">' +
-      '<span class="stage-field-label">Datos técnicos</span>' +
-      '<div class="stage-tech-grid">' + rows + '</div>' +
-      '</div>';
-  }
-
   function renderStageCard(stage) {
     var solved = isStageSolved(stage.id);
     var wrapper = document.createElement('div');
@@ -795,12 +723,10 @@ import * as CQFirebase from './firebase.js';
         '<div class="stage-field-value evidence">' + escapeHtml(stage.evidence) + '</div>' +
       '</div>' +
 
-      renderTechData(stage) +
-
       '<div class="stage-hint-row">' +
         '<button class="btn btn-ghost btn-small stage-hint-btn" type="button">VER PISTA</button>' +
       '</div>' +
-      '<div class="stage-hint-box hidden">' + escapeHtml(stage.hint + (stage.hint2 ? '\n\n' + stage.hint2 : '')) + '</div>' +
+      '<div class="stage-hint-box hidden">' + escapeHtml(stage.hint) + '</div>' +
 
       '<div class="stage-flag-row">' +
         '<input type="text" class="stage-flag-input" placeholder="FLAG{...}" ' + (solved ? 'disabled' : '') + ' autocomplete="off" spellcheck="false">' +
