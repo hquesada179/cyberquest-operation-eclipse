@@ -351,10 +351,10 @@ import * as CQFirebase from './firebase.js';
           desc: 'Para cerrar formalmente Operation ECLIPSE, toda la evidencia recuperada debe compilarse y verificarse contra un manifiesto final de cadena de custodia.',
           objective: 'Verificar el hash SHA-256 del manifiesto final y confirmar que las evidencias listadas mantienen su integridad antes del cierre.',
           technique: 'Manifiesto de evidencia · Verificación SHA-256 · Cadena de custodia',
-          evidence: 'final_manifest.json:\n{ "case": "OPERATION_ECLIPSE", "evidence_items": 10, "responsible": "marcus" }\n\nsha256sum final_manifest.json -> comparar contra el valor publicado',
+          evidence: 'final_manifest.json:\n{ "case": "OPERATION_ECLIPSE", "evidence_items": 4, "responsible": "marcus" }\n\nsha256sum final_manifest.json -> comparar contra el valor publicado',
           techData: [
             ['Manifiesto a usar', 'final_manifest.json'],
-            ['Evidencias a verificar', 'los 10 elementos listados en el manifiesto'],
+            ['Evidencias a verificar', 'las 4 evidencias listadas en el manifiesto'],
             ['Objetivo', 'validar integridad SHA-256 antes de cerrar el caso']
           ],
           hash: 'bc6d0926c96e1cf4d86c72638a6502739e686e6f699377188afc99ea8f258943',
