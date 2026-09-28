@@ -335,7 +335,7 @@ import * as CQFirebase from './firebase.js';
           desc: 'La configuración del servicio persistente (eclipse-monitor.conf) contiene una etiqueta de propietario (owner_tag) ofuscada con un cifrado clásico por desplazamiento. El log de auditoría señala dónde buscar.',
           objective: 'Revisar el log de auditoría y el archivo de configuración cifrado, y romper el cifrado por desplazamiento para revelar la identidad detrás del servicio.',
           technique: 'Análisis de logs de auditoría · Criptoanálisis de cifrado César · Lógica en Python',
-          evidence: "audit.log:\n[AUDIT] eclipse-monitor.conf modificado por proceso desconocido\n\neclipse-monitor.conf:\nowner_tag = 'PDUFXV'",
+          evidence: "audit.log:\n[AUDIT] eclipse-monitor.conf modificado por proceso desconocido\n\neclipse-monitor.conf:\nowner_tag = 'ZLYCPJL VDULY THYJBZ'",
           techData: [
             ['Log a revisar', 'audit.log'],
             ['Archivo cifrado', 'eclipse-monitor.conf (campo owner_tag)'],
