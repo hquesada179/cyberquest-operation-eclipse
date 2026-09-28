@@ -202,7 +202,7 @@ import * as CQFirebase from './firebase.js';
           hash: 'f5f50977bdd639d5895baf9fb478626534c056532cd2f17ef2da0d3e2e0f26d4',
           hint: 'El patrón de la contraseña reduce enormemente el espacio de búsqueda. Piensa cómo generar sistemáticamente todas las combinaciones de 3 letras minúsculas seguidas de 3 números, y qué herramienta de auditoría te permitiría probarlas contra el servicio SSH en el puerto 22.',
           hint2: 'No necesitas un diccionario externo. El patrón de contraseña permite generar una lista de candidatos de forma controlada.',
-          interpretation: 'Los registros muestran múltiples intentos fallidos de autenticación SSH contra la cuenta voss en HELIX-SRV01, seguidos de un acceso exitoso. La contraseña, generada a partir de un patrón predecible (3 letras minúsculas + 3 números), fue comprometida mediante un ataque de fuerza bruta dirigido, confirmando la debilidad de la credencial.'
+          interpretation: 'Los registros muestran múltiples intentos fallidos de autenticación SSH contra la cuenta voss en HELIX-SRV01, seguidos de un acceso exitoso. La contraseña, generada a partir de un patrón predecible (3 letras minúsculas + 3 números), fue comprometida mediante un ataque de diccionario dirigido, confirmando la debilidad de la credencial.'
         }
       ]
     },
@@ -217,7 +217,7 @@ import * as CQFirebase from './firebase.js';
           desc: 'En el directorio de comunicaciones de Elena Torres se localizó un archivo codificado (comms_elena.b64) con indicios de manipulación durante su tránsito. Un manifiesto de integridad acompaña al archivo.',
           objective: 'Verificar la integridad del archivo contra el hash publicado en su manifiesto y, solo si coincide, decodificar su contenido en Base64.',
           technique: 'Verificación de integridad SHA-256 · Decodificación Base64',
-          evidence: 'Directorio de Elena (/home/elena/comms/):\n- comms_elena.b64 (contenido codificado a recuperar)\n- manifest.json:\n  { "file": "comms_elena.b64", "sha256_expected": "<hash publicado en el manifiesto>" }',
+          evidence: 'Directorio de Elena (/home/elena/comms/):\n- comms_elena.b64 (contenido codificado a recuperar)\n- manifest.json:\n  { "file": "comms_elena.b64", "sha256_expected": "(leer valor real del archivo manifest.json)" }\n\nProcedimiento: abre manifest.json y toma el valor real del campo sha256_expected; luego calcula el SHA-256 de comms_elena.b64 y compara ambos valores.',
           techData: [
             ['Archivo a verificar', 'comms_elena.b64'],
             ['Hash esperado', 'campo sha256_expected en manifest.json'],
@@ -233,7 +233,7 @@ import * as CQFirebase from './firebase.js';
           desc: 'La cuenta marcus ejecutó una exportación de datos fuera de su ventana habitual de mantenimiento. Existen varios registros que deben cruzarse para determinar si la operación fue autorizada.',
           objective: 'Correlacionar el log de exportación con los registros de tickets y de ventanas de mantenimiento para determinar si la exportación tuvo autorización.',
           technique: 'Correlación de logs, CSV y registros de exportación',
-          evidence: 'export.log:\n2026-09-21 03:14:02 user=marcus action=EXPORT target=research_db size=1.2GB\n\nticketing_system.csv:\nticket_id,user,resource,status\n(no existe entrada asociada a esta exportación)\n\nmaintenance_window.csv:\n(no hay ventana de mantenimiento autorizada para el 2026-09-21 03:14)',
+          evidence: 'export.log:\n2026-09-21 03:14:02 user=marcus action=EXPORT target=research_db size=1.2GB\n\nticketing_system.csv:\nticket_id,user,resource,status,scheduled_time\nTCK-4410,marcus,research_db,CLOSED,2026-09-18 10:00\nTCK-4423,elena,comms_share,APPROVED,2026-09-22 09:00\n\nmaintenance_window.csv:\nwindow_id,resource,start,end\nMW-118,research_db,2026-09-20 22:00,2026-09-21 01:00\nMW-119,research_db,2026-09-24 22:00,2026-09-25 01:00',
           techData: [
             ['Registros a correlacionar', 'export.log, ticketing_system.csv, maintenance_window.csv'],
             ['Cuenta investigada', 'marcus'],
@@ -256,7 +256,7 @@ import * as CQFirebase from './firebase.js';
           desc: 'Una captura de tráfico (capture.pcap) registró una sesión TCP sostenida desde HELIX-SRV01 hacia una IP externa, justo después de la exportación no autorizada.',
           objective: 'Analizar capture.pcap para reconstruir el flujo TCP/SSH y confirmar el destino real de la transferencia.',
           technique: 'Análisis de PCAP con Wireshark · Reensamblado de flujos TCP/SSH',
-          evidence: 'capture.pcap (resumen de streams):\nstream[12] 192.168.56.105:51330 -> 203.0.113.77:22 (SSH)\nbytes=884213\nsession-id: ECL-NET-EX-05\ntraffic-status: EXTERNAL_TRANSFER_DETECTED',
+          evidence: 'capture.pcap (resumen de streams):\nstream[12] 192.168.56.105:51330 -> destination: <identificar en el stream>:22 (SSH)\nbytes=884213\nsession-id: <recuperar del flujo TCP>\ntraffic-status: EXTERNAL_TRANSFER_DETECTED',
           techData: [
             ['Archivo a analizar', 'capture.pcap'],
             ['Origen', '192.168.56.105 (HELIX-SRV01)'],
@@ -281,6 +281,7 @@ import * as CQFirebase from './firebase.js';
           ],
           hash: '8f038c9aa13ba93673902f42cebececabe2952e856e7ec8cd4306a649376307c',
           hint: 'Primero extrae el contenido oculto de la imagen. Lo que encuentres ahí es justo lo que necesitas para descifrar payload.enc.',
+          hint2: 'El artefacto fue protegido usando el identificador legado: helix06.',
           interpretation: 'Se recuperó información oculta mediante esteganografía. Esa información permitió obtener la clave necesaria para descifrar el archivo protegido con AES-256-CBC, revelando la existencia de un nodo auxiliar.'
         }
       ]
@@ -355,6 +356,7 @@ import * as CQFirebase from './firebase.js';
           techData: [
             ['Manifiesto a usar', 'final_manifest.json'],
             ['Evidencias a verificar', 'las 4 evidencias listadas en el manifiesto'],
+            ['Hash esperado', 'consultar el valor SHA-256 publicado junto al manifiesto final'],
             ['Objetivo', 'validar integridad SHA-256 antes de cerrar el caso']
           ],
           hash: 'bc6d0926c96e1cf4d86c72638a6502739e686e6f699377188afc99ea8f258943',
