@@ -189,7 +189,7 @@ import * as CQFirebase from './firebase.js';
           title: 'Compromised Credentials',
           desc: 'Los registros de autenticación SSH de HELIX-SRV01 (192.168.56.105) muestran decenas de intentos fallidos contra la cuenta voss, seguidos de un acceso exitoso. Una auditoría de políticas de contraseña reveló el patrón estructural usado para generarla.',
           objective: 'Reconstruir el ataque contra el servicio SSH (puerto 22) y confirmar cómo la cuenta voss fue comprometida a partir de una contraseña predecible.',
-          technique: 'Generación de diccionario dirigido · Ataque de fuerza bruta contra SSH',
+          technique: 'Generación de candidatos · Ataque de diccionario dirigido contra SSH',
           evidence: 'auth.log (HELIX-SRV01 · 192.168.56.105):\nsshd: Failed password for voss from 10.0.4.17 port 51101 ssh2\nsshd: Failed password for voss from 10.0.4.17 port 51102 ssh2\n... (47 intentos fallidos registrados)\nsshd: Accepted password for voss from 10.0.4.17 port 51122 ssh2\n\npassword_policy_audit.txt:\nCuenta voss - patrón de contraseña detectado: 3 letras minúsculas + 3 dígitos (formato tipo "abc123")',
           techData: [
             ['Servidor', 'HELIX-SRV01 (192.168.56.105)'],
