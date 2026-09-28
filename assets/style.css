@@ -693,6 +693,7 @@ button { font-family: var(--font-sans); cursor: pointer; }
   border-radius: 3px;
   padding: 8px 10px;
   max-width: 100%;
+  height: auto;
 }
 .stage-tech-item {
   display: flex;
@@ -701,6 +702,9 @@ button { font-family: var(--font-sans); cursor: pointer; }
   gap: 4px;
   min-width: 0;
   width: 100%;
+}
+.stage-tech-item--full {
+  grid-column: 1 / -1;
 }
 .stage-tech-key {
   display: block;

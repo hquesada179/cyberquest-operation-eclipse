@@ -197,7 +197,7 @@ import * as CQFirebase from './firebase.js';
             ['Puerto', '22'],
             ['Usuario objetivo', 'voss'],
             ['Patrón de contraseña', '3 letras minúsculas + 3 números (ej. abc123)'],
-            ['Evidencia a recuperar tras el acceso', 'mission2.txt']
+            ['Evidencia a recuperar tras el acceso', 'mission2.txt', true]
           ],
           hash: 'f5f50977bdd639d5895baf9fb478626534c056532cd2f17ef2da0d3e2e0f26d4',
           hint: 'El patrón de la contraseña reduce enormemente el espacio de búsqueda. Piensa cómo generar sistemáticamente todas las combinaciones de 3 letras minúsculas seguidas de 3 números, y qué herramienta de auditoría te permitiría probarlas contra el servicio SSH en el puerto 22.',
@@ -749,7 +749,8 @@ import * as CQFirebase from './firebase.js';
   function renderTechData(stage) {
     if (!stage.techData || !stage.techData.length) return '';
     var rows = stage.techData.map(function (pair) {
-      return '<div class="stage-tech-item">' +
+      var isFullWidth = pair[2] === true;
+      return '<div class="stage-tech-item' + (isFullWidth ? ' stage-tech-item--full' : '') + '">' +
         '<span class="stage-tech-key">' + escapeHtml(pair[0]) + '</span>' +
         '<span class="stage-tech-val">' + escapeHtml(pair[1]) + '</span>' +
         '</div>';
